@@ -1,0 +1,101 @@
+<editor>
+    <help>https://docs.cloudbees.com/docs/cloudbees-cd/latest/plugins/ecscm-git#CheckoutCode</help>
+
+    <formElement>
+        <type>entry</type>
+        <label>Configuration:</label>
+        <property>config</property>
+        <documentation>The name of a saved SCM configuration.</documentation>
+        <required>1</required>
+        <configuration>1</configuration>
+    </formElement>
+
+    <formElement>
+        <type>entry</type>
+        <label>Destination Directory:</label>
+        <property>dest</property>
+        <documentation>Indicate the path where the source tree will be created (can be relative to the job's workspace).</documentation>
+    </formElement>
+
+    <formElement>
+        <type>entry</type>
+        <label>Commit Hash:</label>
+        <property>commit</property>
+        <documentation>The Commit Hash to update the index. Note: This will move the HEAD.</documentation>
+        <required>0</required>
+    </formElement>
+
+    <formElement>
+        <type>entry</type>
+        <label>Remote Branch:</label>
+        <property>GitBranch</property>
+        <documentation>The name of the Git branch to use. ie: 'experimental'.</documentation>
+        <required>0</required>
+    </formElement>
+
+    <formElement>
+        <type>checkbox</type>
+        <label>Clone?:</label>
+        <property>clone</property>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>0</initiallyChecked>
+        <documentation>This option will clone a repository into a newly created directory.</documentation>
+        <required>0</required>
+    </formElement>
+
+    <formElement>
+        <type>checkbox</type>
+        <label>Overwrite?:</label>
+        <property>overwrite</property>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>0</initiallyChecked>
+        <documentation>This option will overwrite a repository if it already exists.</documentation>
+        <required>0</required>
+    </formElement>
+
+    <formElement>
+        <type>entry</type>
+        <label>Depth:</label>
+        <property>depth</property>
+        <documentation>Create a shallow clone with a history truncated to the specified number of revisions.</documentation>
+        <required>0</required>
+        <dependsOn>clone</dependsOn>
+        <condition>${clone} == "1"</condition>
+    </formElement>
+
+    <formElement>
+        <type>entry</type>
+        <label>Tag:</label>
+        <property>tag</property>
+        <documentation>Provide the name of a specific tag to checkout after the clone command.</documentation>
+        <required>0</required>
+        <dependsOn>clone</dependsOn>
+        <condition>${clone} == "1"</condition>
+    </formElement>
+
+    <formElement>
+        <type>textarea</type>
+        <label>Git repositories:</label>
+        <property>GitRepo</property>
+        <documentation>Newline (\n) or pipe (|) separated list of paths or URLs to the repositories to pull from. ie: 'git://server/repo.git'.</documentation>
+        <required>1</required>
+<!--
+        <collection>1</collection>
+        <collectionName>Repository</collectionName>
+        <collectionEntrySeparator>|</collectionEntrySeparator>
+        <collectionValueSeparator></collectionValueSeparator>
+-->
+    </formElement>
+
+    <formElement>
+        <documentation>Results will be saved into this property/property sheet.</documentation>
+        <label>Result Property Sheet:</label>
+        <property>resultPropertySheet</property>
+        <required>0</required>
+        <type>entry</type>
+        <value>/myJob/checkoutCode</value>
+    </formElement>
+
+</editor>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<editor>
+    <label>Continuous Integration - Git</label>
+    <version>2.1.0</version>
+    <description>A schedule that is enabled for ElectricSentry continuous integration with Git.</description>
+    <help>https://docs.cloudbees.com/docs/cloudbees-cd/latest/plugins/ecscm-git#getSCMTag</help>
+    <formElement>
+        <type>entry</type>
+        <label>Remote Repository:</label>
+        <property>GitRepo</property>
+        <documentation>If specified, the local repository will be updated from the remote repository before the git log command. ie: 'git://server/repo.git'.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Local Repository:</label>
+        <property>dest</property>
+        <documentation>The directory of the local repository.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Branch:</label>
+        <property>GitBranch</property>
+        <required>1</required>
+        <documentation>The name of the Git branch to use. ie: 'experimental'. (Required)</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Quiet time minutes:</label>
+        <property>QuietTimeMinutes</property>
+        <documentation>The number of minutes of no check-in activity required before launching the procedure.</documentation>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Use ls-remote:</label>
+        <property>lsRemote</property>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>1</initiallyChecked>
+        <documentation>If checked, it will use the the git's option ls-remote to check for new changes.</documentation>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Monitor tags:</label>
+        <property>monitorTags</property>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>0</initiallyChecked>
+        <documentation>If checked, it will use the the git's option ls-remote to check for tag changes.</documentation>
+    </formElement>
+   <formElement>
+        <!-- http://jira.electric-cloud.com/browse/ECPSCMGIT-200 -->
+        <type>checkbox</type>
+        <label>Run Schedule Even if Another Instance is Running:</label>
+        <property>runDuplicates</property>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>0</initiallyChecked>
+        <documentation>If checked, the schedule will be launched even if the another instance of this schedule is already running.</documentation>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Enabled for ElectricSentry:</label>
+        <property>TriggerFlag</property>
+        <checkedValue>2</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>1</initiallyChecked>
+        <documentation>Enable for continuous integration monitoring by ElectricSentry.</documentation>
+    </formElement>
+    <formElement>
+        <property>scheduleDisabled</property>
+        <value>1</value>
+    </formElement>
+</editor>

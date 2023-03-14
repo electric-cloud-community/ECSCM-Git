@@ -1,0 +1,7 @@
+<configDefinition>
+  <title>Git Changelog Report</title>
+  <helpLink>/link/showHelp?page=githelp</helpLink>     
+    <componentContainer>
+         <component plugin="@PLUGIN_KEY@" version="@PLUGIN_VERSION@" ref="Reports" />
+    </componentContainer>  
+</configDefinition>

@@ -1,0 +1,208 @@
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+  <title>Git changelog report</title>
+    <style>
+      body, html {
+        padding: 0;
+        margin: 0;
+      }
+
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #333;
+      }
+
+      .wrap {
+        margin: 0 auto;
+        width: 96%;
+        min-width: 980px;
+        padding: 0 10px;
+      }
+
+      .header {
+        padding: 10px 0 10px 0;
+        background-color: #eee;
+        margin-bottom: 1em;
+        min-width: 1000px;
+      }
+
+      h1,
+      .h1,
+      h2,
+      .h2,
+      h3,
+      .h3 {
+        margin: 0.67em 0;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+
+      h1,
+      .h1 {
+        font-size: 28px;
+      }
+
+      h2,
+      .h2 {
+        font-size: 24px;
+      }
+
+      h3,
+      .h3 {
+        font-size: 20px;
+      }
+
+      img {
+        display: inline-block;
+        vertical-align: middle;
+      }
+
+      .list {
+        margin: 1em 0;
+        padding-left: 0;
+        list-style-type: none;
+      }
+
+      .list li {
+        margin-bottom: 10px;
+      }
+
+      table {
+        width: 100%;
+        max-width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #d0d0d0;
+      }
+
+      .table-responsive {
+        margin: 1em 0;
+        min-height: .01%;
+        overflow-x: auto;
+      }
+
+      th.text-left {
+        text-align: left;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      td.text-left {
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 5px 10px;
+        border: 1px solid #d0d0d0;
+      }
+
+      th {
+        background-color: #f0f0f0;
+      }
+
+      td {
+        vertical-align: top;
+      }
+
+      .collapse-box {
+        margin-top: 1.5em;
+      }
+
+      .collapse-btn {
+        display: block;
+        cursor: pointer;
+        padding-left: 35px;
+      }
+
+      .collapse-btn:before {
+        content: '';
+        position: absolute;
+        margin-top: 0.15em;
+        margin-left: -35px;
+        width: 26px;
+        height: 26px;
+        background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAaCAYAAABozQZiAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAZ5JREFUeNqM1MsrRVEUx/Hrul6FZGJgIJTuRImUlMjAwB8gmTBA5FnySEle5VW45ZEYmJgoSVIiYUCiGDDAgAExkUIYeH13rVMrOeeeXZ/J2ve3zz737LVDWrb9ER6Ppwr16MKSx+XwoQKjMIsM4R1rbsJeVEvQjGRMoNhteADXqpaCMRS5Ca+gBbeqniY7KAwW/saqLPCg5vwYR55T2IwvLKMdj2o+HQHkOIXN+MQi2v4skIFJZDmFrQUW0IknVc/EtOzENmy9wrwcmGdVz8aM/Jm2YWsB88MevKh6LmaR6hS2FjDfuw+vqp6POSR5g5yDH4ygH2+qXoApr4tTGILIf3b54QsSDJN/vl0WsMa66UKncDhaJRil6hvSTPdehyc2oONPcAc1uLP6+b8n1qIb0aq+J0+8sfvOJliJXsSo+gHqcGV3wsxWy6W/Y1X9UIJndmfbbL8Mg4hT88fy7id2XWWUyP0Vr+ZO0YQjp34uxTASVP0czdgPdpOYGyRR1S4kuOvmDguozrmUd9xye2+b2yMUjfJtN91e+r8CDABZYVDvcoKfCAAAAABJRU5ErkJggg==') 50% 50% no-repeat;
+      }
+
+      .collapse-btn:hover,
+      .collapse-btn:active {
+        opacity: 0.85;
+      }
+
+      .collapse-container {
+        display: none;
+        padding-left: 35px;
+      }
+
+      .collapse-flag {
+        display: none;
+      }
+
+      .collapse-flag:checked ~ .collapse-container {
+        display: block;
+      }
+
+      .collapse-flag:checked + .collapse-btn:before {
+        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAPCAYAAAD6Ud/mAAABS2lUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxMzggNzkuMTU5ODI0LCAyMDE2LzA5LzE0LTAxOjA5OjAxICAgICAgICAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIi8+CiA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgo8P3hwYWNrZXQgZW5kPSJyIj8+IEmuOgAAAbRJREFUOI2l0ztrlEEUgOFn99tNohARXVS8FHYpJAYELyv6E0Swi8gqWmjwBsFKgkVARFRUtLGyFCsbRUFCYhEEUSKrkKzgBdHawiKFJhYzaybrF7PGU75zZt45Z84UBkd6yujHaVzFPcz4vyhiP87jDu6WcAjX0Y3LMfE+fixRkmEfrmAzbqBcFCrpjkkbcA0HUV6CpIQDuBkl0ImTRVxAI0leG2WH0fGPkv5YwcaEf8BQVq1VpjCF7ajExWXYg294jZ+LSDLUhHatSfh7nMGDrFqrNMEktiWJXVH2Ha8sPCAZjuISVie8ESUPoSlqyt6iD+si68RuTONlTmUZjuMiViV8Unj7x78TExF8Qh1bsT6RVTGL50llBZzFMFYmZ9Sj5Om8G7WI4DMm0GvuUTuwS/gfzyI7JwzSimTvBE5hrPXQPBF8FVrVi02RlbFDmK6dGDL3LQjvOIDxvAMLgyM9ebwZW3AbexM2LbRvecJe4ES8XG4U/2bBGxzDaMK6WiTjwtQtKGlHBO9wBE9y1sbiWn2xQ9oRwUfh1o8SNhpZIyf/jyi1KYIvQhtvCe0bEL5DW/ELd5dXjnLfsX0AAAAASUVORK5CYII=');
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="wrap">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABhGlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9TpSIVh3YQcchQnSz4hTpqFYpQIdQKrTqYXPohNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APExdVJ0UVK/F9SaBHjwXE/3t173L0DhHqZaVbHCKDptplOJsRsbkUMvSKECMKYwqjMLGNWklLwHV/3CPD1Ls6z/M/9OXrUvMWAgEg8wwzTJl4nnty0Dc77xFFWklXic+Jhky5I/Mh1xeM3zkWXBZ4ZNTPpOeIosVhsY6WNWcnUiCeIY6qmU76Q9VjlvMVZK1dZ8578heG8vrzEdZoDSGIBi5AgQkEVGyjDRpxWnRQLadpP+Pj7Xb9ELoVcG2DkmEcFGmTXD/4Hv7u1CuNjXlI4AXS+OM7HIBDaBRo1x/k+dpzGCRB8Bq70lr9SB6Y/Sa+1tNgR0LsNXFy3NGUPuNwB+p4M2ZRdKUhTKBSA9zP6phwQuQW6V73emvs4fQAy1FXqBjg4BIaKlL3m8+6u9t7+PdPs7wfKNnLKR+GlbQAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAAN1wAADdcBQiibeAAAAAd0SU1FB+MHEww6EeqL4AIAAAMZSURBVFjDtZdNaBNBFMf/b5NobK1JhNQP6E30Ih6yq4innqqo1SRSrT20pZZUhCJeRC9SDx68WOhBpaKkILUYyMbWkwcpYqlIkp4qIgqKIIWiyTbFfqTZ56FJbdrNdmetc0t4O78f8+a9mSHYHFpQucjE9wAs6Tpf2fkiPWJnHrLzUSakdBD4EQCp+FeBCK2eeGrwvwsYwPEvEkICM6Ej+3UUPgBwVAhZAtDiVVMxq3NKVgMZoB3q+08gXAagVwhzAhjMhuSmTV2BbFC5BOKWRef82drY5KxJGoTTQRbh/cswepMvbD3tHx7LbZYEmcMDERA9XB1HwNvFgvukf3gsN9t0ePdCQXI6kO8G03U7e4JE4CsfEY144skz5dUhvyTglKiEJAoHAGbduW4ixjs7G1MShRfXIDDVcKh6TZX8NMlmRYkygWxY6doYDgDY5a52xX80ylWlEvUmUg+Y6LaohPQXLneC+b5Ac2qocmDPcoOSe7m93u2LJ3sA3NhA4pkWllvKBLJhpQuMfpHGtGb5T2jarMrt9W6vmrpLzD0ETAL4bhDuYMZAaSUoE1JaCRy1dTAx9nkTqS/ZkPwRwAEAr3LOLcG62PhcKTVaWL4Dxk2j6tB1DksE7rV7KhqlZXt+4cKqGmfPr5pbALJG6ZAk6pNM+rqtIUFaKKuX0dElAn5XCHdJBOreTAkmjnBEdq00qKAcZGCvQagO4JrToyaHMsGAm4ge292Ea0a9No1xLSgnWKI6MLcZwRno8KmpmBMAfIl0VAsp8wx+anLWiwyZCTKYYQIfKOsDHjU5xMydAumYcrj0meLCT1n8pgy+rhP6EukoM1+yIDHDpB+tiU1MA0C+sK0RwFdRuOFZYEmC8NoXn/hW+ukfHssREBeFVzwNfYl0lIGOShIMrl1PYL8o3PRO6FNTA5UkiOlYNhiIrLwRzgWOE1GzKNzSlSwTktsIeGIoS/gMxhyAgwZzbQi3fCnVQkqzYIlaggu9CwQkLMOFHyYWJITgtp5mJhLCcNuPUwMJW3DbAsXL63kQ9S23Bb7qTaSf25nnD539hCQEVOJ4AAAAAElFTkSuQmCC" height="32" alt="git logo">
+      </div>
+    </div>
+
+    <div class="wrap">
+
+      <div>
+        <div>
+          <h1><?= $_[0]->{name} ?></h1>
+        </div>
+
+<? my $items = $_[0]->{items}; ?>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th class="text-center">Commit</th>
+                <th class="text-center">Author</th>
+                <th class="text-center">Message</th>
+                <th class="text-center">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+
+? for my $item (@{$items}) {
+              <tr>
+                <td><b><code><?= $item->{commit} ?></code></b></td>
+                <td><?= $item->{author} ?></td>
+                <td><pre><?= $item->{commitMessage} ?></pre></td>
+                <td><?= $item->{date} ?></td>
+              </tr>
+<? my $files = $item->{files}; ?>
+<? my $file_list = $item->{files_list}; ?>
+<? my $row = ''; ?>
+? for my $file (@{$file_list}) {
+<? $row .= sprintf("%s %s\n", $files->{$file}->{action}, $file); ?>
+? }
+              <tr>
+                <td><br/></td>
+                <td colspan="3"><pre><?= $row ?></pre></td>
+              </tr>
+? }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+</body>
+</html>

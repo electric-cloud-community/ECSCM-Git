@@ -1,0 +1,202 @@
+<!--
+
+     Copyright 2016 Electric Cloud, Inc.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+
+-->
+<editor>
+    <help>https://docs.cloudbees.com/docs/cloudbees-cd/latest/plugins/ecscm-git#CollectReportingData</help>
+    <formElement>
+        <type>entry</type>
+        <label>Configuration name:</label>
+        <property>config</property>
+        <required>1</required>
+        <documentation>Plugin Configuration Name</documentation>
+        <!-- Improvements for CEV-18687 -->
+        <configuration>1</configuration>
+        <!-- End of improvements for CEV-18687 -->
+        <propertyReference>/plugins/@PLUGIN_NAME@/project/ec_plugin_cfgs</propertyReference>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Preview Mode:</label>
+        <property>previewMode</property>
+        <checkedValue>1</checkedValue>
+        <required>0</required>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>0</initiallyChecked>
+        <documentation>
+            This mode is provided to let a user perform a WHAT IF analysis before enabling automatic reporting.
+            If this mode is set, no metadata will be set and reports will be not be sent to the Reporting Server.
+            Instead detailed information about each object retrieved from SonarQube that includes transformation, mapping and payload, will be shown in the summary logs.
+        </documentation>
+        <value>0</value>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Remote Repository:</label>
+        <property>GitRepo</property>
+        <documentation>The path or URL to the repository to pull from, e.g. 'https://github.com/username/reponame'.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Remote Branch:</label>
+        <property>GitBranch</property>
+        <documentation>Name of the git branch to use. Default will be master.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Starting Commit:</label>
+        <property>commit</property>
+        <documentation>SHA of the earliest commit from which data needs to be collected. Needs to be setup only for the first run.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>File Prefix:</label>
+        <property>filePrefix</property>
+        <documentation>
+            If provided, matching string will be removed from file path before sending report.
+            For example if file path is /opt/repo/file1, file prefix = /opt/repo will resolve it to /file1.
+            Similarly file prefix = /opt/repo/ will resolve it to file1.
+        </documentation>
+    </formElement>
+    <formElement>
+        <label>Metadata Property Path:</label>
+        <property>metadataPropertyPath</property>
+        <documentation>
+            Property sheet where run metadata will be stored.
+            Optional field. If omited, /mySchedule/@PLUGIN_KEY@-%JobName%-%Report Object Type% will be used for schedule contest. For all other contexts root is /myProject.
+        </documentation>
+        <required>0</required>
+        <type>entry</type>
+    </formElement>
+    <formElement>
+        <label>Commit URL Template</label>
+        <property>commitURLTemplate</property>
+        <documentation>
+            Enter the Template for the URL to be resolved.
+            For example the template for a URL https://github.com/somerepo/commit/a12b3 would be ${repoUrl}/commit/${commitId}.
+        </documentation>
+        <required>0</required>
+        <type>entry</type>
+    </formElement>
+    <formElement>
+        <label>File URL Template</label>
+        <property>fileURLTemplate</property>
+        <documentation>
+            Enter the Template for the URL to be resolved.
+            For example the template for a URL https://github.com/somerepo/blob/abc/path/to/file would be
+            ${repoUrl}/blob/${commitId}/${fileName}
+        </documentation>
+        <required>0</required>
+        <type>entry</type>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Include File Details:</label>
+        <property>fileDetails</property>
+        <checkedValue>1</checkedValue>
+        <required>0</required>
+        <uncheckedValue>0</uncheckedValue>
+        <documentation>
+            If set, the report will include file details.
+        </documentation>
+        <value>0</value>
+    </formElement>
+    <formElement>
+        <type>textarea</type>
+        <label>Field mapping:</label>
+        <property>fieldMapping</property>
+        <required>1</required>
+        <documentation>
+            Git fields that identify the release that the feature or defect is associated with.
+            E.g., "commit.scmUrl: codeCommit.scmUrl, commit.author: codeCommit.author".
+            The identified fields will be used to populate the target fields identified in the report object association from feature to release.
+        </documentation>
+        <value>commit.commitDate: codeCommit.commitDate,
+commit.scmUrl: codeCommit.scmUrl,
+commit.scmRepoBranch: codeCommit.scmRepoBranch,
+commit.commitId: codeCommit.commitId,
+commit.commitAuthor: codeCommit.commitAuthor,
+commit.commitAuthorId: codeCommit.commitAuthorId,
+commit.commitMessage: codeCommit.commitMessage,
+commit.codeLinesAdded: codeCommit.codeLinesAdded,
+commit.codeLinesUpdated: codeCommit.codeLinesUpdated,
+commit.codeLinesRemoved: codeCommit.codeLinesRemoved,
+commit.filesAdded: codeCommit.filesAdded,
+commit.filesUpdated: codeCommit.filesUpdated,
+commit.filesRemoved: codeCommit.filesRemoved,
+# CodeCommitFile section
+commit.scmUrl: codeCommitFile.scmUrl,
+commit.scmRepoBranch: codeCommitFile.scmRepoBranch,
+commit.commitId: codeCommitFile.commitId,
+commit.sourceUrl: codeCommitFile.sourceUrl,
+commitFile.filePath: codeCommitFile.filePath,
+commitFile.codeLinesAdded: codeCommitFile.codeLinesAdded,
+commitFile.codeLinesUpdated: codeCommitFile.codeLinesUpdated,
+commitFile.codeLinesRemoved: codeCommitFile.codeLinesRemoved</value>
+    </formElement>
+    <formElement>
+        <label>Transform Script:</label>
+        <property>transformScript</property>
+        <documentation>Perl code to transform report payload.</documentation>
+        <htmlDocumentation>
+                            Allows user to provide perl script for payload customization.
+                            This method will be invoked by plugin with 2 parameters. 1st parameter is context object, 2nd is payload object.
+                            Method should be named "transform", and should return payload object. In this example myTimestamp field will be added to payload object:
+                            <pre>
+sub transform {
+    my ($context, $payload) = @_;
+    # $payload->{codeCommit}->{customField1} = $context->one();
+
+    # for my $p (@{$payload->{codeCommitFile}}) {
+    #    $p->{customField2} = $context->one();
+    # }
+    return $payload;
+}
+sub one {
+    my ($context) = @_;
+    return time();
+}
+                            </pre>
+        </htmlDocumentation>
+        <required>0</required>
+        <value>sub transform {
+    my ($context, $payload) = @_;
+    # $payload->{codeCommit}->{customField1} = $context->one();
+
+    # for my $p (@{$payload->{codeCommitFile}}) {
+    #    $p->{customField2} = $context->one();
+    # }
+    return $payload;
+}
+sub one {
+    my ($context) = @_;
+    return time();
+}</value>
+        <type>textarea</type>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Debug:</label>
+        <property>debug</property>
+        <checkedValue>1</checkedValue>
+        <required>0</required>
+        <uncheckedValue>0</uncheckedValue>
+        <documentation>
+            If set the summary logs will be written with the highest verbosity for the entire procedure.
+        </documentation>
+        <value>0</value>
+    </formElement>
+</editor>

@@ -1,0 +1,312 @@
+{
+  "push": {
+    "changes": [
+      {
+        "forced": false,
+        "old": {
+          "name": "testbranch",
+          "links": {
+            "commits": {
+              "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commits/testbranch"
+            },
+            "self": {
+              "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/refs/branches/testbranch"
+            },
+            "html": {
+              "href": "https://bitbucket.org/pluginsdev/specs-test-repo/branch/testbranch"
+            }
+          },
+          "default_merge_strategy": "merge_commit",
+          "merge_strategies": [
+            "merge_commit",
+            "squash",
+            "fast_forward"
+          ],
+          "type": "branch",
+          "target": {
+            "rendered": {},
+            "hash": "494bc836eb9ecea64149e35b3bb361c2452c11be",
+            "links": {
+              "self": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/494bc836eb9ecea64149e35b3bb361c2452c11be"
+              },
+              "html": {
+                "href": "https://bitbucket.org/pluginsdev/specs-test-repo/commits/494bc836eb9ecea64149e35b3bb361c2452c11be"
+              }
+            },
+            "author": {
+              "raw": "Andrii Pravorskyi <apravorskyi@cloudbees.com>",
+              "type": "author",
+              "user": {
+                "display_name": "Andrii Pravorskyi",
+                "account_id": "5cb868aff54e020e3a1e24c9",
+                "links": {
+                  "self": {
+                    "href": "https://api.bitbucket.org/2.0/users/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D"
+                  },
+                  "html": {
+                    "href": "https://bitbucket.org/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D/"
+                  },
+                  "avatar": {
+                    "href": "https://secure.gravatar.com/avatar/29c4308d14e3399a2e7979cd5b3fb152?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FAP-4.png"
+                  }
+                },
+                "nickname": "apravorskyi",
+                "type": "user",
+                "uuid": "{7419705a-e7ad-4163-aeb8-c0b51d74e011}"
+              }
+            },
+            "summary": {
+              "raw": "update\n",
+              "markup": "markdown",
+              "html": "<p>update</p>",
+              "type": "rendered"
+            },
+            "parents": [
+              {
+                "hash": "fb9a2a1a85be5afd4d050856f74495a9d822822f",
+                "type": "commit",
+                "links": {
+                  "self": {
+                    "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/fb9a2a1a85be5afd4d050856f74495a9d822822f"
+                  },
+                  "html": {
+                    "href": "https://bitbucket.org/pluginsdev/specs-test-repo/commits/fb9a2a1a85be5afd4d050856f74495a9d822822f"
+                  }
+                }
+              }
+            ],
+            "date": "2020-01-16T18:19:11+00:00",
+            "message": "update\n",
+            "type": "commit",
+            "properties": {}
+          }
+        },
+        "links": {
+          "commits": {
+            "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commits?include=be56894c64ecb17d9521032fffbabd906ffc4daf&exclude=494bc836eb9ecea64149e35b3bb361c2452c11be"
+          },
+          "html": {
+            "href": "https://bitbucket.org/pluginsdev/specs-test-repo/branches/compare/be56894c64ecb17d9521032fffbabd906ffc4daf..494bc836eb9ecea64149e35b3bb361c2452c11be"
+          },
+          "diff": {
+            "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/diff/be56894c64ecb17d9521032fffbabd906ffc4daf..494bc836eb9ecea64149e35b3bb361c2452c11be"
+          }
+        },
+        "created": false,
+        "commits": [
+          {
+            "rendered": {},
+            "hash": "be56894c64ecb17d9521032fffbabd906ffc4daf",
+            "links": {
+              "self": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/be56894c64ecb17d9521032fffbabd906ffc4daf"
+              },
+              "comments": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/be56894c64ecb17d9521032fffbabd906ffc4daf/comments"
+              },
+              "patch": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/patch/be56894c64ecb17d9521032fffbabd906ffc4daf"
+              },
+              "html": {
+                "href": "https://bitbucket.org/pluginsdev/specs-test-repo/commits/be56894c64ecb17d9521032fffbabd906ffc4daf"
+              },
+              "diff": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/diff/be56894c64ecb17d9521032fffbabd906ffc4daf"
+              },
+              "approve": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/be56894c64ecb17d9521032fffbabd906ffc4daf/approve"
+              },
+              "statuses": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/be56894c64ecb17d9521032fffbabd906ffc4daf/statuses"
+              }
+            },
+            "author": {
+              "raw": "Andrii Pravorskyi <apravorskyi@cloudbees.com>",
+              "type": "author",
+              "user": {
+                "display_name": "Andrii Pravorskyi",
+                "account_id": "5cb868aff54e020e3a1e24c9",
+                "links": {
+                  "self": {
+                    "href": "https://api.bitbucket.org/2.0/users/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D"
+                  },
+                  "html": {
+                    "href": "https://bitbucket.org/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D/"
+                  },
+                  "avatar": {
+                    "href": "https://secure.gravatar.com/avatar/29c4308d14e3399a2e7979cd5b3fb152?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FAP-4.png"
+                  }
+                },
+                "nickname": "apravorskyi",
+                "type": "user",
+                "uuid": "{7419705a-e7ad-4163-aeb8-c0b51d74e011}"
+              }
+            },
+            "summary": {
+              "raw": "update\n",
+              "markup": "markdown",
+              "html": "<p>update</p>",
+              "type": "rendered"
+            },
+            "parents": [
+              {
+                "hash": "494bc836eb9ecea64149e35b3bb361c2452c11be",
+                "type": "commit",
+                "links": {
+                  "self": {
+                    "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/494bc836eb9ecea64149e35b3bb361c2452c11be"
+                  },
+                  "html": {
+                    "href": "https://bitbucket.org/pluginsdev/specs-test-repo/commits/494bc836eb9ecea64149e35b3bb361c2452c11be"
+                  }
+                }
+              }
+            ],
+            "date": "2020-01-16T18:19:23+00:00",
+            "message": "update\n",
+            "type": "commit",
+            "properties": {}
+          }
+        ],
+        "truncated": false,
+        "closed": false,
+        "new": {
+          "name": "testbranch",
+          "links": {
+            "commits": {
+              "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commits/testbranch"
+            },
+            "self": {
+              "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/refs/branches/testbranch"
+            },
+            "html": {
+              "href": "https://bitbucket.org/pluginsdev/specs-test-repo/branch/testbranch"
+            }
+          },
+          "default_merge_strategy": "merge_commit",
+          "merge_strategies": [
+            "merge_commit",
+            "squash",
+            "fast_forward"
+          ],
+          "type": "branch",
+          "target": {
+            "rendered": {},
+            "hash": "be56894c64ecb17d9521032fffbabd906ffc4daf",
+            "links": {
+              "self": {
+                "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/be56894c64ecb17d9521032fffbabd906ffc4daf"
+              },
+              "html": {
+                "href": "https://bitbucket.org/pluginsdev/specs-test-repo/commits/be56894c64ecb17d9521032fffbabd906ffc4daf"
+              }
+            },
+            "author": {
+              "raw": "Andrii Pravorskyi <apravorskyi@cloudbees.com>",
+              "type": "author",
+              "user": {
+                "display_name": "Andrii Pravorskyi",
+                "account_id": "5cb868aff54e020e3a1e24c9",
+                "links": {
+                  "self": {
+                    "href": "https://api.bitbucket.org/2.0/users/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D"
+                  },
+                  "html": {
+                    "href": "https://bitbucket.org/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D/"
+                  },
+                  "avatar": {
+                    "href": "https://secure.gravatar.com/avatar/29c4308d14e3399a2e7979cd5b3fb152?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FAP-4.png"
+                  }
+                },
+                "nickname": "apravorskyi",
+                "type": "user",
+                "uuid": "{7419705a-e7ad-4163-aeb8-c0b51d74e011}"
+              }
+            },
+            "summary": {
+              "raw": "update\n",
+              "markup": "markdown",
+              "html": "<p>update</p>",
+              "type": "rendered"
+            },
+            "parents": [
+              {
+                "hash": "494bc836eb9ecea64149e35b3bb361c2452c11be",
+                "type": "commit",
+                "links": {
+                  "self": {
+                    "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo/commit/494bc836eb9ecea64149e35b3bb361c2452c11be"
+                  },
+                  "html": {
+                    "href": "https://bitbucket.org/pluginsdev/specs-test-repo/commits/494bc836eb9ecea64149e35b3bb361c2452c11be"
+                  }
+                }
+              }
+            ],
+            "date": "2020-01-16T18:19:23+00:00",
+            "message": "update\n",
+            "type": "commit",
+            "properties": {}
+          }
+        }
+      }
+    ]
+  },
+  "actor": {
+    "display_name": "Andrii Pravorskyi",
+    "account_id": "5cb868aff54e020e3a1e24c9",
+    "links": {
+      "self": {
+        "href": "https://api.bitbucket.org/2.0/users/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D"
+      },
+      "html": {
+        "href": "https://bitbucket.org/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D/"
+      },
+      "avatar": {
+        "href": "https://secure.gravatar.com/avatar/29c4308d14e3399a2e7979cd5b3fb152?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FAP-4.png"
+      }
+    },
+    "nickname": "apravorskyi",
+    "type": "user",
+    "uuid": "{7419705a-e7ad-4163-aeb8-c0b51d74e011}"
+  },
+  "repository": {
+    "scm": "git",
+    "website": null,
+    "name": "ecscm-git-webhook",
+    "links": {
+      "self": {
+        "href": "https://api.bitbucket.org/2.0/repositories/pluginsdev/specs-test-repo"
+      },
+      "html": {
+        "href": "https://bitbucket.org/pluginsdev/specs-test-repo"
+      },
+      "avatar": {
+        "href": "https://bytebucket.org/ravatar/%7B12485791-b038-4215-bba3-a93be7b8bd4c%7D?ts=default"
+      }
+    },
+    "full_name": "pluginsdev/specs-test-repo",
+    "owner": {
+      "display_name": "Andrii Pravorskyi",
+      "account_id": "5cb868aff54e020e3a1e24c9",
+      "links": {
+        "self": {
+          "href": "https://api.bitbucket.org/2.0/users/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D"
+        },
+        "html": {
+          "href": "https://bitbucket.org/%7B7419705a-e7ad-4163-aeb8-c0b51d74e011%7D/"
+        },
+        "avatar": {
+          "href": "https://secure.gravatar.com/avatar/29c4308d14e3399a2e7979cd5b3fb152?d=https%3A%2F%2Favatar-management--avatars.us-west-2.prod.public.atl-paas.net%2Finitials%2FAP-4.png"
+        }
+      },
+      "nickname": "apravorskyi",
+      "type": "user",
+      "uuid": "{7419705a-e7ad-4163-aeb8-c0b51d74e011}"
+    },
+    "type": "repository",
+    "is_private": true,
+    "uuid": "{12485791-b038-4215-bba3-a93be7b8bd4c}"
+  }
+}

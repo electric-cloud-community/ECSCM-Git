@@ -1,0 +1,76 @@
+<?xml version='1.0' standalone='yes'?>
+<fileset>
+  <file>
+    <path>changeLogs.html</path>
+    <xpath>//property[propertyName="templates"]/propertySheet/property[propertyName=&quot;changeLogs&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>GitCfg.pm</path>
+    <xpath>//property[propertyName=&quot;ECSCM::Git::Cfg&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>GitDriver.pm</path>
+    <xpath>//property[propertyName="scm_driver"]/propertySheet/property[propertyName=&quot;ECSCM::Git::Driver&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>MicroTemplate.pm</path>
+    <xpath>//property[propertyName="scm_driver"]/propertySheet/property[propertyName=&quot;Text::MicroTemplate&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitCheckoutForm.xml</path>
+    <xpath>//procedure[procedureName=&quot;CheckoutCode&quot;]/propertySheet/property[propertyName=&quot;ec_parameterForm&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitCollectReportingDataForm.xml</path>
+    <xpath>//procedure[procedureName=&quot;CollectReportingData&quot;]/propertySheet/property[propertyName=&quot;ec_parameterForm&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitPreflightForm.xml</path>
+    <xpath>//procedure[procedureName=&quot;Preflight&quot;]/propertySheet/property[propertyName=&quot;ec_parameterForm&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitCheckoutForm.xml</path>
+    <xpath>//property[propertyName=&quot;checkout&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitSentryForm.xml</path>
+    <xpath>//property[propertyName=&quot;sentry&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitPreflightForm.xml</path>
+    <xpath>//property[propertyName=&quot;preflight&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitTriggerForm.xml</path>
+    <xpath>//property[propertyName=&quot;trigger&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitCreateConfigForm.xml</path>
+    <xpath>//property[propertyName=&quot;createConfig&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitCreateConfigFormFlow.xml</path>
+    <xpath>//procedure[procedureName=&quot;CreateConfiguration&quot;]/propertySheet/property[propertyName=&quot;ec_parameterForm&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitEditConfigForm.xml</path>
+    <xpath>//property[propertyName=&quot;editConfig&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>gitWebhookForm.xml</path>
+    <xpath>//property[propertyName=&quot;webhook&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>ec_setup.pl</path>
+    <xpath>//property[propertyName=&quot;ec_setup&quot;]/value</xpath>
+  </file>
+  <file>
+    <path>WebHook.groovy</path>
+    <xpath>//property[propertyName=&quot;ec_endpoints&quot;]/propertySheet/property[propertyName=&quot;githubWebhook&quot;]/propertySheet/property[propertyName=&quot;POST&quot;]/propertySheet/property[propertyName=&quot;script&quot;]/value</xpath>
+  </file>
+  <!-- This part of manifest has been disabled due to some issues with credentials loading -->
+  <!-- <file> -->
+  <!--     <xpath>//procedure[procedureName=&quot;CollectReportingData&quot;]/step[stepName=&quot;CollectReportingData&quot;]/command</xpath> -->
+  <!--     <path>collectReportingData.pl</path> -->
+  <!-- </file> -->
+</fileset>

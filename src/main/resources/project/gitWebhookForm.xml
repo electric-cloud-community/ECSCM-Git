@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<editor>
+    <label>Continuous Integration - Git</label>
+    <help>https://docs.cloudbees.com/docs/cloudbees-cd/latest/plugins/ecscm-git#Webhook</help>
+    <formElement>
+        <type>entry</type>
+        <label>Repository Name:</label>
+        <property>ec_webhookRepositoryName</property>
+        <documentation>Repository name, e.g. user/repository. The repository name is accepted in form of username/repository-name or org-name/repository name.</documentation>
+        <required>1</required>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Event Type:</label>
+        <property>ec_webhookEventType</property>
+        <documentation>Event type to monitor. For now only "push" event is supported.</documentation>
+        <required>1</required>
+        <value>push</value>
+    </formElement>
+    <formElement>
+        <type>select</type>
+        <label>Event Source:</label>
+        <property>ec_webhookEventSource</property>
+        <documentation>Event source, i.e. third-party system which initiates the webhook. For now only "github" is supported.</documentation>
+        <value>github</value>
+        <required>1</required>
+        <option>
+            <name>GitHub</name>
+            <value>github</value>
+        </option>
+        <option>
+            <name>BitBucket</name>
+            <value>bitbucket</value>
+        </option>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Branch:</label>
+        <property>ec_webhookBranch</property>
+        <documentation>The name of branch to trigger, e.g. master. Wildcard (*) is supported to watch events from any branch.</documentation>
+        <value>master</value>
+        <required>1</required>
+    </formElement>
+   <formElement>
+        <!-- http://jira.electric-cloud.com/browse/ECPSCMGIT-200 -->
+        <type>checkbox</type>
+        <label>Run Schedule Even if Another Instance is Running:</label>
+        <property>ec_runDuplicates</property>
+        <checkedValue>1</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>1</initiallyChecked>
+        <documentation>If checked, the schedule will be launched even if the another instance of this schedule is already running.</documentation>
+    </formElement>
+   <formElement>
+        <type>entry</type>
+        <label>Quiet Time:</label>
+        <property>ec_quietTime</property>
+        <value>0</value>
+        <documentation>How many minutes should CloudBees CD wait before launching the schedule?</documentation>
+    </formElement>
+   <formElement>
+        <type>entry</type>
+        <label>Maximum Retries:</label>
+        <property>ec_maxRetries</property>
+        <value>5</value>
+        <documentation>How many times the schedule launch will be postponed?</documentation>
+    </formElement>
+    <formElement>
+        <type>checkbox</type>
+        <label>Enabled?:</label>
+        <property>TriggerFlag</property>
+        <documentation></documentation>
+        <value></value>
+        <required>0</required>
+        <checkedValue>3</checkedValue>
+        <uncheckedValue>0</uncheckedValue>
+        <initiallyChecked>1</initiallyChecked>
+    </formElement>
+</editor>

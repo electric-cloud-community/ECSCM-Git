@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data>
+	<server>
+		<hostName>localhost</hostName>
+		<userName>admin</userName>
+		<password>changeme</password>               
+	</server>
+	<procedure>
+		<projectName>Git</projectName>
+		<procedureName>Preflight</procedureName>
+		<jobTimeout>7200</jobTimeout>
+	</procedure>
+	<scm>
+		<type>ECSCM-Git</type>
+		<user>ectest</user>
+		<gitdir>C:\mscm\workdir\src</gitdir>
+		<method>local_all</method>			
+	</scm>
+</data>

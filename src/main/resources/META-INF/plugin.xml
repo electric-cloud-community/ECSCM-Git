@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+    <key>ECSCM-Git</key>
+    <version>@PLUGIN_VERSION@</version>
+    <label>ECSCM-Git</label>
+    <description>SCM Plugin for Git</description>
+    <author>CloudBees</author>
+    <authorUrl>http://www.electric-cloud.com/support</authorUrl>
+    <category>Source Code Management</category>
+    <commander-version min="3.6"/>
+    <repositoryUrl>https://github.com/electric-cloud-community/ECSCM-Git</repositoryUrl>
+    <depends min="2.2.3">ECSCM</depends>
+    <customTypes>
+        <customType name="reports">
+            <displayName>Display Git Changelog Report</displayName>
+            <description></description>
+            <page pageName="GitReports" definition="pages/reports.xml"/>
+        </customType>
+    </customTypes>
+    <components>
+        <component name="Reports">
+            <javascript>war/ecplugins.ECSCM.Reports/ecplugins.ECSCM.Reports.nocache.js</javascript>
+        </component>
+    </components>
+    <help>ECSCM-Git_help.xml</help>
+
+<detailedDescription>WARNING: ECSCM-Git has been deprecated and is no longer supported. It has been replaced by EC-Git, EC-GitHub, and EC-Bitbucket. Git is a distributed revision control system with an emphasis on speed. Every Git working directory is a full-fledged repository with complete history and full revision tracking capabilities, not dependent on network access or a central server.
+The EC-Git plugin allows you to connect the Git source control server to CloudBees CD/RO. It enables you to perform:
+
+* Code checkouts.
+* Preflight build.
+* Continuous integration.</detailedDescription>
+<catalogLabel>Git</catalogLabel>
+</plugin>

@@ -1,0 +1,21 @@
+<editor>
+    <formElement>
+        <type>entry</type>
+        <label>Remote Repository:</label>
+        <property>GitRepo</property>
+        <documentation>If specified, the local repository will be updated from the remote repository before the git log command. Example: git://server/repo.git.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Local repository:</label>
+        <property>dest</property>
+        <documentation>The directory of the local repository.</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Branch:</label>
+        <property>GitBranch</property>
+        <required>1</required>
+        <documentation>The branch to watch.</documentation>
+    </formElement>
+</editor>

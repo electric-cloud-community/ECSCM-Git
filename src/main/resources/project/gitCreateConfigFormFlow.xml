@@ -1,0 +1,51 @@
+<editor>
+    <formElement>
+        <type>entry</type>
+        <label>Configuration Name:</label>
+        <property>config</property>
+        <required>1</required>
+    </formElement>
+    <formElement>
+        <type>textarea</type>
+        <label>Description:</label>
+        <property>desc</property>
+        <value>Git configuration</value>
+    </formElement>
+    <formElement>
+        <type>radio</type>
+        <label>Credential Type:</label>
+        <property>credentialType</property>
+        <value>password</value>
+        <option>
+            <name>Password</name>
+            <value>password</value>
+        </option>
+        <option>
+            <name>Key</name>
+            <value>key</value>
+        </option>
+    </formElement>
+    <formElement>
+        <condition>credentialType == "password"</condition>
+        <type>credential</type>
+        <label>Login As:</label>
+        <property>credential</property>
+        <credentialType>password</credentialType>
+        <required>0</required>
+    </formElement>
+    <formElement>
+        <condition>credentialType == "key"</condition>
+        <type>credential</type>
+        <label>Login As:</label>
+        <property>credential</property>
+        <credentialType>key</credentialType>
+        <required>0</required>
+    </formElement>
+    <formElement>
+        <type>credential</type>
+        <label>WebHook Secret:</label>
+        <property>webhookSecret</property>
+        <required>0</required>
+        <credentialType>secret</credentialType>
+    </formElement>
+</editor>

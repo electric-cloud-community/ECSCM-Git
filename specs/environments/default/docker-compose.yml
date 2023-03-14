@@ -1,0 +1,28 @@
+version: '3'
+services:
+  electric-flow:
+    image: "electricflow/efserver:latest"
+    ports:
+      - "8000:8000"
+      - "8200:8200"
+      - "8443:8443"
+      - "443:443"
+      - "80:80"
+    networks:
+     - external
+    container_name: efserver
+    hostname: "efserver"
+    tty: true
+  git:
+    image: "electricflow/git:latest"
+    ports:
+      - "7808:7808"
+      - "8080:8080"
+    networks:
+      - external
+    container_name: git
+    hostname: "git"
+    tty: true
+networks:
+  external:
+    driver: bridge

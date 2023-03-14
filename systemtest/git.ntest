@@ -1,0 +1,2315 @@
+# -*-Perl-*-
+
+# git.ntest -
+#
+# Exercise basic components of ECSCM-GIT plugin
+#
+# Copyright (c) 2005-2010 Electric Cloud, Inc.
+# All rights reserved
+
+use strict;
+
+# read in setup and tests that are common to all ECSCM plugin 
+# system tests
+my $commonFile =  "$::gTestFileDir/../../ECSCM/systemtest/ntest.common";
+open F, "< $commonFile";
+my $code = do { local $/; <F> };
+close F;
+eval  $code ;
+
+ntest "check-checkout-present", {}, sub {
+    # Check that the plugin contains required components
+    my $xpath = $::N->getSteps("$::gPlugin_name","CheckoutCode");
+    assertOK($xpath,"get steps");
+    assertEq("checkoutMethod", $xpath->findvalue("//step[1]/stepName"), "step 1 is checkoutMethod");
+};
+
+ntest "check-getSCMTag-present", {}, sub {
+    my $xpath = $::N->getSteps("$::gPlugin_name","getSCMTag");
+    assertOK($xpath, "get steps");
+    assertEq("tagMethod", $xpath->findvalue("//step[1]/stepName"), "step 1 is getSCMTag");
+};
+
+ntest "check-preflight-present", {}, sub {
+    my $xpath = $::N->getSteps("$::gPlugin_name","Preflight");
+    assertOK($xpath, "get steps");
+    assertEq("preflight", $xpath->findvalue("//step[1]/stepName"), "step 1 is preflight");
+};
+
+ntest "check-config code-present", {}, sub {
+    my $xpath = $::N->getProperty("/projects/$::gPlugin_name/scm_driver/$::gPlugin_driver" . "::Cfg");
+    assertOK($xpath,"get cfg property");
+    assertNe("", $xpath->findvalue("//value"), "Config Code");
+};
+
+ntest "check-driver code-present", {}, sub {
+    my $xpath = $::N->getProperty("/projects/$::gPlugin_name/scm_driver/$::gPlugin_driver" . "::Driver");
+    assertOK($xpath,"get driver property");
+};
+
+# Tests specific or customized to this SCM
+ntest "setup-import test project", {}, sub {
+    assertOK($::N->import(
+             { file =>"$::gTestFileDir/import.xml",
+               path  => "/projects/ECSCM Tests",
+               force => 1
+             } ), "import test project");
+    assertOK($::N->getProcedure("ECSCM Tests", "gittest"),"gittest procedure exists");
+};
+
+ntest "setup-create configuration", {}, sub {
+    my $xpath = $::N->runProcedure("$::gPlugin_name", 
+        { procedureName => "CreateConfiguration",
+          pollInterval  => '0.2',
+          timeout       => 600,
+          actualParameter => [ 
+            { actualParameterName => 'config', value => "test" }, 
+            { actualParameterName => 'desc', value => "GIT config" }, 
+            { actualParameterName => 'credential', value => "test" },
+          ],
+          credential => [ 
+            { 
+              credentialName => 'test',
+              userName => "qa",
+              password => "qa", 
+             },
+          ],
+        });
+
+    assertOK($xpath, "run create configuration procedure");
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertDef($xpath, "runProcedure finished without a timeout");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+
+    writeFile("$::gCurrentTestDir/createConfiguration.log","====Job Details====\n$xpath->{_xml}\n");
+
+    # check that the config and credential exist
+    $xpath = $::N->getProperty("/projects/$::ECSCM/scm_cfgs/test/scmPlugin");
+    assertEq("ECSCM-Git",$xpath->findvalue("//value")->string_value,"config type");
+    #$xpath = $::N->getCredential("$::ECSCM","test");
+    #assertEq("qa",$xpath->findvalue("//userName")->string_value, 'Credential user');
+};
+
+ntest "run-end to end", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests", 
+        { procedureName => "gittest",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if (!isWindows()) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for checkoutCode
+    my $logFileName = $ws . "/"
+        . $xpath->findvalue("//jobStep[stepName='checkoutMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+    return if assertNe($data, '', "Read data");
+
+    # check that files were really checked out
+    my $exists = (-e "$ws/git-src/file.txt");
+    assertEq(1,$exists, "SCM Checked out file.txt");
+
+    writeFile("$::gCurrentTestDir/checkoutCode.log","====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n");
+
+    $data =~ '.*checkoutCode returned (.*)';
+    my $change = $1;
+    assertTrue($change && int($change) > 0,'checkoutCode - valid changelist found in log');
+
+    # Get the name of the log file for preFlight
+    $logFileName = $ws . "/"
+        . $xpath->findvalue("//jobStep[stepName='tagMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+    # Read the log file and verify its contents.
+    $data = readFile($logFileName);
+    $data =~ '.*getSCMTag returned ([0-9a-f]*)';
+    $change = $1;
+    assertTrue($change ne "" ,'getSCMTag - valid changelist found in log');
+    writeFile("$::gCurrentTestDir/getSCMTag.log",$data);
+};
+
+ntest "run-preflight", {linuxOnly =>1}, sub {
+
+    # The agent needs to know the server name, but gTarget is probably
+    # "localhost" which does us no good.  Find the real name of the
+    # local host and pass it to the agent
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    my $procedureName = "gitpreflight_client";
+    my $config_param  = "/myProject/git-1.preflight";
+    my $src_dir       = "git-src";
+
+    # Run test job
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "default"
+                },
+                {
+                    actualParameterName => 'cmdr_server',
+                    value               => "$serverName"
+                },
+                {
+                    actualParameterName => 'test',
+                    value               => "$config_param"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+
+    # Abort if job did not finish
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # Examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+
+    # Get the name of the log file for ecclientpreflight
+    my $logFileName =
+      $ws . "/"
+      . $xpath->findvalue(
+        "//jobStep[stepName='ecclientpreflight']/logFileName");
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+
+    $data =~ 'JOB ID: ([0-9a-zA-Z-]*)';
+    my $agentJobId = $1;
+
+    assertGoodId($agentJobId, 'agent jobid found in log' );
+
+    writeFile( "$::gCurrentTestDir/clientpreflight.log",
+        "====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n" );
+
+    $::N->waitForJob( $agentJobId, 60 );
+
+    # now get the details of the agent job
+    $xpath = $::N->getJobDetails($agentJobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for agent
+    my $agentLogFileName =
+      $ws . "/"
+      . $xpath->findvalue(
+"//jobStep[stepName='preflight']/calledProcedure/jobStep[stepName='runMethod']/logFileName"
+      );
+    $data = readFile($agentLogFileName);
+    return if assertNe($data, '', "Read data");
+
+    # Modified file
+    my $exists = ( -e "$ws/$src_dir/file.txt" ) || 0;
+    assertEq( 1, $exists, "SCM Checked out file.txt" );
+    my $content = `cat $ws/$src_dir/file.txt`;
+    $content =~ s/\s*$//; #chomp $content;  # chomp doesn't delete \r
+    assertEq( "preflight", $content, "SCM Modified file1" );
+
+    # Deleted file
+    $exists = ( -e "$ws/$src_dir/test.txt" ) || 0;
+    assertEq( 0, $exists, "SCM Deleted test.txt" );
+
+    # Added file
+    $exists = ( -e "$ws/$src_dir/file3" ) || 0;
+    assertEq( 1, $exists, "SCM Created file3" );
+    writeFile( "$::gCurrentTestDir/agentpreflight.log",
+        "====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n" );
+
+};
+
+#-----------------------------------------------------------------
+#
+#  Screen parameter tests
+#
+#-----------------------------------------------------------------
+
+ntest "git_config_blank", {}, sub {
+
+    my $procedureName = "git config - blank";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "default"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("Could not find configuration", $data, "runMethod");
+};
+
+
+
+ntest "git_config_invalid", {}, sub {
+
+    my $procedureName = "git config - invalid";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "default"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("Could not find configuration bogus", $data, "runMethod");
+};
+
+
+ntest "git_dest_blank", {linuxOnly =>1}, sub {
+
+    my $procedureName = "git dest - blank";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "default"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+#print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'success', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("Log Command: git pull", $data, "runMethod");
+    #    output contains a "promote" transaction
+};
+
+#-----------------------------------------------------------------
+
+ntest "git_gitrepo_blank", {}, sub {
+
+    my $procedureName = "git Gitrepo - blank";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "default"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+#print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("At least one Git repository is required", $data, "runMethod");
+};
+
+ntest "git_gitrepo_invalid", {}, sub {
+
+    my $procedureName = "git Gitrepo - invalid";
+
+    my $serverName = "$::gTarget";
+    if ( "$::gTarget" eq "localhost" ) {
+        $serverName = hostname();
+    }
+
+    # Run the procedure
+    my $xpath = $::N->runProcedure(
+        "ECSCM Tests",
+        {
+            procedureName   => "$procedureName",
+            pollInterval    => '1',
+            timeout         => 600,
+            actualParameter => [
+                {
+                    actualParameterName => 'resource',
+                    value               => "default"
+                },
+            ]
+        }
+    );
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # Make sure it finished
+    assertOK( $xpath, "runProcedure finished" );
+    my $jobId  = $xpath->findvalue("//jobId");
+    my $status = $xpath->findvalue("//status");
+    assertTrue($jobId && $jobId ne "",'valid job id');
+    assertEq( 'completed', $status, "job $jobId complete" );
+    if ( $status ne "completed" ) {
+        assertOK( $::N->abortJob( $jobId, { force => 1 } ) );
+    }
+
+#print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Assertions
+    assertSubstring("BOGUS.git", $data, "runMethod");
+};
+
+ntest "run-valid clone", {linuxOnly=>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests", 
+        { procedureName => "gittest - valid clone",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if (!isWindows()) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for checkoutCode
+    my $logFileName = $ws . "/"
+        . $xpath->findvalue("//jobStep[stepName='checkoutMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+    return if assertNe($data, '', "Read data");
+
+    # check that files were really checked out
+    my $exists = (-e "$ws/git-src/file.txt");
+    assertEq(1,$exists, "SCM Checked out file.txt");
+
+    writeFile("$::gCurrentTestDir/checkoutCode.log","====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n");
+
+    $data =~ '.*checkoutCode returned (.*)';
+    my $change = $1;
+    assertTrue($change && int($change) > 0,'checkoutCode - valid changelist found in log');
+};
+
+# ECPSCMGIT-53: Feature Request for Git, expose 'depth <value>' option for git clone.
+# Run CheckoutCode procedure with depth = 1
+# Check cloned commit history with "git log"
+ntest "run-valid clone with depth option", {linuxOnly=>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest - clone with depth option",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if (!isWindows()) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for checkoutCode
+    my $logFileName = $ws . "/"
+        . $xpath->findvalue("//jobStep[stepName='checkoutMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+
+    # Make sure git pull appears in the log file
+    assertSubstring("git clone --depth 1", $data,
+       "ERROR: Could not find git clone in step log");
+
+    # check that files were really checked out
+    my $exists = (-e "$ws/git-src/file.txt");
+    assertEq(1,$exists, "SCM Checked out file.txt");
+
+    writeFile("$::gCurrentTestDir/checkoutCode.log","====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n");
+
+    $data =~ '.*checkoutCode returned (.*)';
+    my $change = $1;
+    assertTrue($change && int($change) > 0,'checkoutCode - valid changelist found in log');
+
+    #check cloned commits
+    chdir "$ws/git-src/";
+    my $log = `git log`;
+
+    #Only last commit hash should be present in git log output
+    assertSubstring("ad6e179cc48b966951fbdc51a59b275312877b86", $log, "ERROR: Could not find last commit hash in git log output.");
+    assertNotSubstring("d941d5e9088ab8ef62c4b1f9f79ab7bdd0fc7c52", $log, "ERROR: Commit d941d5e shouldn't be present in git log output.");
+};
+
+ntest "run-invalid clone", {}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests", 
+        { procedureName => "gittest - invalid clone",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Check the outcome
+    my $outcome = $xpath->findvalue("//outcome");
+    assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+    # Get the clone step log
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    #print "\n\n\n", $xpath->findnodes_as_string("/*"), "\n\n"; # Print the XML
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if ( !isWindows() ) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    my $agentLogFileName = $xpath->findvalue(
+        qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+        );
+    assertTrue( "$agentLogFileName", "Step-log name");
+    $ws .= "/$agentLogFileName";
+    my $data = readFile("$ws");
+
+    # Error appears in log file
+    assert("Error: Return ", "=~", $data,
+        "Error returned");
+};
+
+ntest "run-valid clone tag with destination", {linuxOnly=>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest - valid clone tag with dest",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if (!isWindows()) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for checkoutCode
+    my $logFileName = $ws . "/"
+        . $xpath->findvalue("//jobStep[stepName='checkoutMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+    return if assertNe($data, '', "Read data");
+
+    # check that files were really checked out
+    #my $exists = (-e "$ws/git-src/file1");
+    #assertEq(1,$exists, "SCM Checked out file1");
+
+    writeFile("$::gCurrentTestDir/checkoutCode.log","====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n");
+
+};
+
+ntest "run-valid clone tag with no destination", {linuxOnly=>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest - valid clone tag no dest",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # Did the job run error free?
+    assert('', 'eq', errors($xpath), "runProcedure returned error-free");
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+    log_xml(__LINE__, $xpath, "getJobDetails");
+    assertOK( $xpath, "getJobDetails" );
+    return if assertEq('', errors($xpath), "getJobDetails returned error-free");
+
+    # Get the root of log files. use UNC so it works from
+    # command line as well as within a CMD step
+    my $ws = $xpath->findvalue("//workspace/winUNC");
+    if (!isWindows()) {
+        $ws = $xpath->findvalue("//workspace/unix");
+    }
+    return if assertNe($ws, '', "Found a logfile name");
+
+    # Get the name of the log file for checkoutCode
+    my $logFileName = $ws . "/"
+        . $xpath->findvalue("//jobStep[stepName='checkoutMethod']/calledProcedure/jobStep[stepName='runMethod']/logFileName");
+
+    # Read the log file and verify its contents.
+    my $data = readFile($logFileName);
+    return if assertNe($data, '', "Read data");
+
+    # check that files were really checked out
+    #my $exists = (-e "$ws/git-src/file1");
+    #assertEq(1,$exists, "SCM Checked out file1");
+
+    writeFile("$::gCurrentTestDir/checkoutCode.log","====Job Details====\n$xpath->{_xml}\n====LOG====\n$data\n");
+
+};
+
+# Test for ECPSCMGIT-50 BounceBack from GIT server will expose credentials
+# Attempt to poll an invalid remote repository
+# Make sure the password does not get exposed in the step log file
+ntest "run-getSCMTag-bad-repository", {}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-getSCMTag-invalidRepository",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+              { actualParameterName => 'repo', value => "https://bitbucket.org/pluginsdev/helloworld11.git" },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, must be an error since we fed in bad inputs
+     my $outcome = $xpath->findvalue("//outcome");
+     assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+     my $data = readFile("$ws");
+
+     # Search step log for password in cleartext
+     my $foundPassword = index($data, 'qa:qa');
+     assertEq( '-1', $foundPassword, "ERROR: Found password in step log" );
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: getSCMTag...", $data,
+     "Verify the code under test ran");
+};
+
+# Test for ECPSCMGIT-57 ls-remote sentry check still does a checkout
+# Do not perform a checkout when lsRemote is selected
+ntest "run-getSCMTag-lsRemote-noCheckout", {}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-getSCMTag",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'repo', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            { actualParameterName => 'lsRemote', value => "1" },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, we expect it to be success
+     my $outcome = $xpath->findvalue("//outcome");
+     assertEq( 'success', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+     my $data = readFile("$ws");
+
+     # Search step log git pull
+     my $foundPassword = index($data, 'git pull');
+     assertEq( '-1', $foundPassword, "ERROR: Found git pull in step log" );
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: getSCMTag...", $data,
+       "Verify the code under test ran");
+};
+
+
+# Test for ECPSCMGIT-56 sentry not working
+# Perform a checkout when lsRemote is NOT selected.
+# No destination directory specified
+ntest "run-getSCMTag-lsRemote-checkoutNoDest", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-getSCMTag",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'repo', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            { actualParameterName => 'lsRemote', value => "0" },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "Should not be error: job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+
+     # check that files were really checked out
+     my $exists = (-e "$ws/ectest/file.txt");
+     assertEq(1,$exists, "$ws/ectest/file.txt does not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git pull appears in the log file
+     assertSubstring("git pull", $data,
+       "ERROR: Could not find git pull in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: getSCMTag...", $data,
+       "Verify the code under test ran");
+};
+
+# Test for ECPSCMGIT-56 sentry not working
+# Perform a checkout when lsRemote is NOT selected.
+# Destination directory specified
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-getSCMTag-lsRemote-checkoutDest", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-getSCMTag",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'repo', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            { actualParameterName => 'lsRemote', value => "0" },
+            { actualParameterName => 'dest', value => "destDir" },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # check that files were really checked out
+     my $exists = (-e "$ws/destDir/file.txt");
+     assertEq(1,$exists, "$ws/destDir/file.txt does not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+
+
+     my $data = readFile("$ws");
+
+     # Make sure git pull appears in the log file
+     assertSubstring("git pull", $data,
+       "ERROR: Could not find git pull in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: getSCMTag...", $data,
+       "Verify the code under test ran");
+};
+
+# Test for ECPSCMGIT-54
+# Tries to make a root directory when provided multiple repositories
+# Perform a clone of multiple repositories
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-multipleRepo", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git|https://bitbucket.org/pluginsdev/ectest2.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # check that files were really checked out
+     my $exists = (-e "$ws/ectest/file.txt");
+     assertEq(1,$exists, "$ws/ectest/file.txt does not exist");
+
+     $exists = (-e "$ws/ectest2/file2.txt");
+     assertEq(1,$exists, "$ws/ectest2/file2.txt");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Search step log for password in cleartext
+     my $foundPassword = index($data, 'qa:qa');
+     assertEq( '-1', $foundPassword, "ERROR: Found password in step log" );
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# Test for ECPSCMGIT-54
+# Tries to make a root directory when provided multiple repositories
+# Perform a clone of multiple repositories
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-multipleRepoWithDestination", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'dest', value => "destDir" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git|https://bitbucket.org/pluginsdev/ectest2.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # check that files were really checked out
+     my $exists = (-e "$ws/destDir/ectest/file.txt");
+     assertEq(1,$exists, "$ws/destDir/ectest/file.txt does not exist");
+
+     $exists = (-e "$ws/destDir/ectest2/file2.txt");
+     assertEq(1,$exists, "$ws/destDir/ectest2/file2.txt");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-59 Add tests for remote branch option in ECSCM-Git CheckoutCode
+# Perform clone with remote branch
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-remoteBranch-clone-dest", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'dest', value => "destDir" },
+            { actualParameterName => 'remoteBranch', value => "experimental" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # Check that files were really checked out.
+     # In this case the file 'experimental.txt' should only exist in the
+     # experimental branch and not in master.
+     my $exists = (-e "$ws/destDir/experimental.txt");
+     assertEq(1,$exists, "$ws/destDir/experimental.txt does not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-59 Add tests for remote branch option in ECSCM-Git CheckoutCode
+# Perform clone with remote branch
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-remoteBranch-clone-noDest", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'remoteBranch', value => "experimental" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # Check that files were really checked out.
+     # In this case the file 'experimental.txt' should only exist in the
+     # experimental branch and not in master.
+     my $exists = (-e "$ws/ectest/experimental.txt");
+     assertEq(1,$exists, "$ws/ectest/experimental.txt does not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-59 Add tests for remote branch option in ECSCM-Git CheckoutCode
+# Specifying invalid branch leads to overall job resulting in outcome = warning
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-invalidRemoteBranch", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'remoteBranch', value => "experimentalZZZ" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should be warning since git emits
+     # a warning message when the branch specified is not valid
+    my $outcome = $xpath->findvalue("//outcome");
+    # assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+    assertTrue($outcome =~ m/(?:error|warning)/gs, "Wrong branch checkout failed");
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+    # Make sure git clone appears in the log file
+
+#     assertSubstring("git clone", $data,
+#       "ERROR: Could not find git clone in step log");
+
+     # Make sure the error we expect appears in the output
+#     assertSubstring("fatal: Remote branch", $data,
+#      "expecting to see warning message from git");
+
+};
+
+# ECPSCMGIT-45 Providing an invalid directory does not cause a failure
+# Specifying a non empty directory leads to overall job resulting in outcome = error
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-cloneToNonEmptyDir", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout-NonEmptyDir",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'dest', value => "occupied" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should be error since we are attempting to clone into
+     # a directory that is not empty
+     my $outcome = $xpath->findvalue("//outcome");
+     assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the error we expect appears in the output
+     assertSubstring("already exists and is not an empty directory", $data,
+       "expecting to see specific message from git indicating error");
+
+};
+
+# ECPSCMGIT-68
+# Use git:// protocol and perform test
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-gitProtocol-destDir", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout-NonEmptyDir",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'dest', value => "occupied" },
+            { actualParameterName => 'repositories', value => 'git://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should be error since we are attempting to clone into
+     # a directory that is not empty
+     my $outcome = $xpath->findvalue("//outcome");
+     assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the error we expect appears in the output
+     assertSubstring("already exists and is not an empty directory", $data,
+       "expecting to see specific message from git indicating error");
+
+};
+
+
+# ECPSCMGIT-60    Add system tests for commit hash in ECSCM-Git CheckoutCode
+# Perform clone with commit hash
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-clone-commitHash", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'commitHash', value => "d941d5e9088ab8ef62c4b1f9f79ab7bdd0fc7c52" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # Check that files were really checked out.
+     # In this case the file 'experimental.txt' should only exist in the
+     # experimental branch and not in master.
+     my $exists = (-e "$ws/ectest/file.txt");
+     assertUndef($exists, "$ws/ectest/file.txt should not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-60    Add system tests for commit hash in ECSCM-Git CheckoutCode
+# Perform clone with commit hash and destination directory
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-clone-destDir-commitHash", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'dest', value => "destDir" },
+            { actualParameterName => 'commitHash', value => "d941d5e9088ab8ef62c4b1f9f79ab7bdd0fc7c52" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # Check that files were really checked out.
+     # In this case the file 'experimental.txt' should only exist in the
+     # experimental branch and not in master.
+     my $exists = (-e "$ws/destDir/file.txt");
+     assertUndef($exists, "$ws/destDir/file.txt should not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git clone appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-60    Add system tests for commit hash in ECSCM-Git CheckoutCode
+# Perform git pull with commit hash
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-pull-commitHash", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            {actualParameterName => 'clone', value => "0"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'commitHash', value => "d941d5e9088ab8ef62c4b1f9f79ab7bdd0fc7c52" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # Check that files were really checked out.
+     # In this case the file 'file.txt' should not exist
+     # because the commit hash we've passed is before the file was introduced
+     my $exists = (-e "$ws/ectest/file.txt");
+     assertUndef($exists, "$ws/ectest/file.txt should not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git pull appears in the log file
+     assertSubstring("git pull", $data,
+       "ERROR: Could not find git pull in step log");
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-60    Add system tests for commit hash in ECSCM-Git CheckoutCode
+# Perform git pull with commit hash and destination directory
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-pull-destDir-commitHash", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            {actualParameterName => 'clone', value => "0"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'dest', value => "destDir" },
+            { actualParameterName => 'commitHash', value => "d941d5e9088ab8ef62c4b1f9f79ab7bdd0fc7c52" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     # Check that files were really checked out.
+     # In this case the file 'file.txt' should not exist
+     # because the commit hash we've passed is before the file was introduced
+     my $exists = (-e "$ws/destDir/file.txt");
+     assertUndef($exists, "$ws/destDir/file.txt should not exist");
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+     # Make sure git pull appears in the log file
+     assertSubstring("git pull", $data,
+       "ERROR: Could not find git pull in step log");
+
+     # Search step log for password in cleartext
+     my $foundPassword = index($data, 'qa:qa');
+     assertEq( '-1', $foundPassword, "ERROR: Found password in step log" );
+
+     # Make sure the getSCMTag code ran
+     assertSubstring("Running driver method: checkoutCode...", $data,
+       "Verify the code under test ran");
+};
+
+# ECPSCMGIT-41: Inconsistency between ECSCM Source Control Configurations
+# Create a configuration with no user name and password
+# Then use it to perform a git clone operation
+# Skipping windows due to ECPSCMGIT-58
+ntest "create-configuration-git-checkout-noUser-noPass", {linuxOnly =>1}, sub {
+    my $xpath = $::N->runProcedure("$::gPlugin_name",
+        { procedureName => "CreateConfiguration",
+          pollInterval  => '0.2',
+          timeout       => 600,
+          actualParameter => [
+            { actualParameterName => 'config', value => "minimumConfig" },
+            { actualParameterName => 'desc', value => "GIT config" },
+            { actualParameterName => 'credential', value => "test" },
+          ],
+          credential => [
+            {
+              credentialName => 'test',
+              userName => "",
+              password => "",
+             },
+          ],
+        });
+
+    assertOK($xpath, "run create configuration procedure");
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertDef($xpath, "runProcedure finished without a timeout");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+
+    writeFile("$::gCurrentTestDir/createConfiguration.log","====Job Details====\n$xpath->{_xml}\n");
+
+    # check that the config and credential exist
+    $xpath = $::N->getProperty("/projects/$::ECSCM/scm_cfgs/test/scmPlugin");
+    assertEq("ECSCM-Git",$xpath->findvalue("//value")->string_value,"config type");
+
+    # run test job
+        my $xpath = $::N->runProcedure("ECSCM Tests",
+            { procedureName => "gittest-checkout",
+              pollInterval  => '1',
+              timeout       => 600,
+                actualParameter => [
+                {actualParameterName => 'resource', value => "default"},
+                { actualParameterName => 'config', value => "minimumConfig" },
+                { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+                ]
+            });
+        log_xml(__LINE__, $xpath, "runProcedure");
+
+        # make sure it finished
+        my $jobId = 0;
+        my $status = "";
+        assertOK($xpath, "runProcedure finished");
+        if ($xpath) {
+            $jobId  = $xpath->findvalue("//jobId");
+            $status = $xpath->findvalue("//status");
+
+            assertTrue($jobId && $jobId ne "",'valid job id');
+            assertEq('completed',$status,"job $jobId complete");
+
+            #abort if job did not finish
+            if ($status ne "completed") {
+                assertOK($::N->abortJob($jobId, {force => 1}));
+            }
+        }
+
+         # Check the outcome, should not be error
+         # Cannot directly check for success
+         # on windows we get cygwin warnings which turn the job outcome to warning
+         my $outcome = $xpath->findvalue("//outcome");
+         assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+};
+
+# Providing multiple repositories and a commit hash
+# leads to overall job resulting in outcome = error
+# Skipping windows due to ECPSCMGIT-58
+ntest "run-checkout-clone-multipleRepo-commitHash", {linuxOnly =>1}, sub {
+    # run test job
+    my $xpath = $::N->runProcedure("ECSCM Tests",
+        { procedureName => "gittest-checkout-NonEmptyDir",
+          pollInterval  => '1',
+          timeout       => 600,
+            actualParameter => [
+            {actualParameterName => 'resource', value => "default"},
+            { actualParameterName => 'config', value => "test" },
+            { actualParameterName => 'commitHash', value => "d941d5e9088ab8ef62c4b1f9f79ab7bdd0fc7c52" },
+            { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git|https://bitbucket.org/pluginsdev/ectest2.git' },
+            ]
+        });
+    log_xml(__LINE__, $xpath, "runProcedure");
+
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertOK($xpath, "runProcedure finished");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+     # Check the outcome, should be error since we are attempting to clone
+     # multiple repositories while specifying a commitHash
+     my $outcome = $xpath->findvalue("//outcome");
+     assertEq( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+     # Get the step log
+     $xpath = $::N->getJobDetails($jobId);
+     log_xml(__LINE__, $xpath, "getJobDetails");
+     assertOK( $xpath, "getJobDetails" );
+
+     my $ws = $xpath->findvalue("//workspace/winUNC");
+     if ( !isWindows() ) {
+         $ws = $xpath->findvalue("//workspace/unix");
+     }
+     my $agentLogFileName = $xpath->findvalue(
+         qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+         );
+
+     assertTrue( "$agentLogFileName", "Step-log name");
+     $ws .= "/$agentLogFileName";
+
+     my $data = readFile("$ws");
+
+
+     # Make sure the error we expect appears in the output
+     assertSubstring("Error: impossible to perform checkout using Commit Hash with multiple repositories", $data,
+       "expecting to see specific message from git indicating error");
+
+};
+
+# ECPSCMGIT-70: Password exposed during git clone
+# Create a configuration with a user name and password
+# Then use it to perform a git clone operation
+# Make sure the password does not appear in the step log file
+# Skipping windows due to ECPSCMGIT-58
+ntest "create-configuration-git-checkout-user-pass-clone", {linuxOnly =>1}, sub {
+    my $xpath = $::N->runProcedure("$::gPlugin_name",
+        { procedureName => "CreateConfiguration",
+          pollInterval  => '0.2',
+          timeout       => 600,
+          actualParameter => [
+            { actualParameterName => 'config', value => "userPassConfig" },
+            { actualParameterName => 'desc', value => "GIT config" },
+            { actualParameterName => 'credential', value => "test" },
+          ],
+          credential => [
+            {
+              credentialName => 'test',
+              userName => "helloUser",
+              password => "supersecret123123",
+             },
+          ],
+        });
+
+    assertOK($xpath, "run create configuration procedure");
+    # make sure it finished
+    my $jobId = 0;
+    my $status = "";
+    assertDef($xpath, "runProcedure finished without a timeout");
+    if ($xpath) {
+        $jobId  = $xpath->findvalue("//jobId");
+        $status = $xpath->findvalue("//status");
+
+        assertTrue($jobId && $jobId ne "",'valid job id');
+        assertEq('completed',$status,"job $jobId complete");
+
+        #abort if job did not finish
+        if ($status ne "completed") {
+            assertOK($::N->abortJob($jobId, {force => 1}));
+        }
+    }
+
+    # examine log files
+    $xpath = $::N->getJobDetails($jobId);
+
+    writeFile("$::gCurrentTestDir/createConfiguration.log","====Job Details====\n$xpath->{_xml}\n");
+
+    # check that the config and credential exist
+    $xpath = $::N->getProperty("/projects/$::ECSCM/scm_cfgs/test/scmPlugin");
+    assertEq("ECSCM-Git",$xpath->findvalue("//value")->string_value,"config type");
+
+    # run test job
+        my $xpath = $::N->runProcedure("ECSCM Tests",
+            { procedureName => "gittest-checkout",
+              pollInterval  => '1',
+              timeout       => 600,
+                actualParameter => [
+                {actualParameterName => 'resource', value => "default"},
+                { actualParameterName => 'config', value => "userPassConfig" },
+                { actualParameterName => 'repositories', value => 'https://bitbucket.org/pluginsdev/ectest.git' },
+                ]
+            });
+        log_xml(__LINE__, $xpath, "runProcedure");
+
+        # make sure it finished
+        my $jobId = 0;
+        my $status = "";
+        assertOK($xpath, "runProcedure finished");
+        if ($xpath) {
+            $jobId  = $xpath->findvalue("//jobId");
+            $status = $xpath->findvalue("//status");
+
+            assertTrue($jobId && $jobId ne "",'valid job id');
+            assertEq('completed',$status,"job $jobId complete");
+
+            #abort if job did not finish
+            if ($status ne "completed") {
+                assertOK($::N->abortJob($jobId, {force => 1}));
+            }
+        }
+
+     # Check the outcome, should not be error
+     # Cannot directly check for success
+     # on windows we get cygwin warnings which turn the job outcome to warning
+     my $outcome = $xpath->findvalue("//outcome");
+     assertNe( 'error', $outcome, "job $jobId outcome: $outcome" );
+
+      # Get the step log
+      $xpath = $::N->getJobDetails($jobId);
+      log_xml(__LINE__, $xpath, "getJobDetails");
+      assertOK( $xpath, "getJobDetails" );
+
+      my $ws = $xpath->findvalue("//workspace/winUNC");
+      if ( !isWindows() ) {
+          $ws = $xpath->findvalue("//workspace/unix");
+      }
+      my $agentLogFileName = $xpath->findvalue(
+          qq{//calledProcedure/jobStep[stepName="runMethod"]/logFileName}
+          );
+
+      assertTrue( "$agentLogFileName", "Step-log name");
+      $ws .= "/$agentLogFileName";
+
+      my $data = readFile("$ws");
+
+     # Make sure git pull appears in the log file
+     assertSubstring("git clone", $data,
+       "ERROR: Could not find git clone in step log");
+
+      # Search step log for password in cleartext
+      my $foundPassword = index($data, 'supersecret123123');
+      assertEq( '-1', $foundPassword, "ERROR: Found password in step log" );
+
+};

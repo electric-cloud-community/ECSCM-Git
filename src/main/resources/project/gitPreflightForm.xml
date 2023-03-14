@@ -1,0 +1,23 @@
+<editor>
+    <help>https://docs.cloudbees.com/docs/cloudbees-cd/latest/plugins/ecscm-git#Preflight</help>
+    <formElement>
+        <type>entry</type>
+        <label>Destination Directory:</label>
+        <property>dest</property>
+        <documentation>Indicate the path where the source tree will be created (can be relative to the job's workspace).</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Remote Respository:</label>
+        <required>1</required>
+        <property>GitRepo</property>
+        <documentation>The path or URL to the repository that preflight will pull from before overlaying files. (Required)</documentation>
+    </formElement>
+    <formElement>
+        <type>entry</type>
+        <label>Configuration Name:</label>
+        <property>config</property>
+        <required>1</required>
+        <documentation>The name of a saved SCM configuration. (Required)</documentation>
+    </formElement>
+</editor>

@@ -1,0 +1,70 @@
+
+apply plugin: "groovy"
+apply plugin: 'idea'
+
+version = "1.0"
+description = "ECSCM-Git"
+
+sourceCompatibility = 1.8
+
+defaultTasks 'test'
+
+repositories {
+    jcenter()
+    mavenCentral()
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots'
+    }
+    maven {
+            url 'https://nexus-internal.cloudbees.com/content/repositories/snapshots'
+            credentials {
+                username = System.getenv('NEXUS_USERNAME') ?: nexusUsername
+                password = System.getenv('NEXUS_PASSWORD') ?: nexusPassword
+            }
+        }
+        maven {
+            url 'https://nexus-internal.cloudbees.com/content/groups/mirror'
+            credentials {
+                username = System.getenv('NEXUS_USERNAME') ?: nexusUsername
+                password = System.getenv('NEXUS_PASSWORD') ?: nexusPassword
+            }
+        }
+}
+
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.4.5:indy'
+    //compile 'org.spockframework:spock-core:1.1-groovy-2.4-SNAPSHOT'
+    compile 'com.jayway.restassured:rest-assured:2.4.0'
+    compile group: 'com.codepine.api', name: 'testrail-api-java-client', version: '2.0.1'
+    compile 'com.electriccloud:ec-specs-plugins-core:1.9.1'
+    compile group: 'org.codehaus.groovy.modules.http-builder', name: 'http-builder', version: '0.7.1'
+    testCompile( 'com.athaydes:spock-reports:1.6.0' ) {
+        transitive = false // this avoids affecting your version of Groovy/Spock
+    }
+    compile group: 'org.spockframework', name: 'spock-core', version: '1.2-groovy-2.4'
+    compile group: 'org.yaml', name: 'snakeyaml', version: '1.24'
+}
+
+test {
+    systemProperty 'com.athaydes.spockframework.report.showCodeBlocks', true
+
+    def server = findProperty('server') ?: findProperty('COMMANDER_SERVER') ?: findProperty('commanderServer') ?: 'localhost'
+    systemProperties['COMMANDER_SERVER'] = server
+    def secure = findProperty('secure') ?: findProperty('COMMANDER_SECURE') ?: findProperty('commanderSecure') ?: 1
+    systemProperties["COMMANDER_SECURE"] = secure
+
+    testLogging {
+        showStandardStreams = true
+//        exceptionFormat = 'full'
+    }
+    outputs.upToDateWhen { false }
+    systemProperties['EC_SPECS_CLI'] = true
+
+    def destination = findProperty('reportDestination') ?: "spec-report"
+    if (destination) {
+        reports {
+            html.setDestination(new File("$destination/spock-report"))
+        }
+        systemProperty 'com.athaydes.spockframework.report.outputDir', destination
+    }
+}

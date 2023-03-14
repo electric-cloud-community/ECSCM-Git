@@ -1,0 +1,25 @@
+# -*-Perl-*-
+
+# gitDriver.ntest -
+#
+# Exercise functions in GitDriver.pm
+#
+# Copyright (c) 2005-2014 Electric Cloud, Inc.
+# All rights reserved
+
+# Load the scp functions that we want to test.
+use strict;
+use warnings;
+
+require 'GitDriver.pm';
+
+
+ntest 'test_getDefaultRepo', {}, sub {
+  my $result = ECSCM::Git::Driver::getDefaultRepo("https://github.com/mitchellh/vagrant.git");
+  assertEq("vagrant", $result);
+
+  $result = ECSCM::Git::Driver::getDefaultRepo("http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git");
+  assertEq("linux", $result);
+
+};
+
